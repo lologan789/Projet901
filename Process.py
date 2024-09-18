@@ -1,6 +1,7 @@
 import random
 from time import sleep
 from typing import Callable
+from Com import Com
 
 from pyeventbus3.pyeventbus3 import *
 
@@ -30,6 +31,8 @@ class Process(Thread):
         self.token_state = TokenState.Null
         self.nbSync = 0
         self.isSyncing = False
+        self.mailbox = []
+        self.com = Com(self.horloge, self)
         self.start()
 
     def run(self):
@@ -63,14 +66,14 @@ class Process(Thread):
         self.horloge += 1
         message.horloge = self.horloge
         self.printer(verbosityThreshold, [self.name, "envoie:", message.getObject()])
-        PyBus.Instance().post(message)
+        self.com.sendTo(message.to_process, message)
 
     def receiveMessage(self, message: Message, verbosityThreshold=1):
         self.printer(verbosityThreshold, [self.name, "Traite l'événement:", message.getObject()])
         self.horloge = max(self.horloge, message.horloge) + 1
 
     def sendAll(self, obj: any):
-        self.sendMessage(Message(obj))
+        self.com.broadcast(BroadcastMessage(obj, self.name))
 
     @subscribe(threadMode=Mode.PARALLEL, onEvent=Message)
     def process(self, event: Message):
