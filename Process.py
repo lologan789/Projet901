@@ -36,11 +36,17 @@ class Process(Thread):
         self.start()
 
     def run(self):
+        if self.alive : 
+            print("Fonctionne")
         while self.nbProcess != Process.nbProcessCreated:
             pass
         if self.myId == 0:
             self.releaseToken()
+            if self.alive : 
+                print("Fonctionne release")
         self.synchronize()
+        if self.alive : 
+            print("Fonctionne sync")
         loop = 0
         while self.alive:
             self.printer(2, [self.name, "Itération:", loop, "; Horloge locale:", self.horloge])

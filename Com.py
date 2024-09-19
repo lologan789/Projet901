@@ -49,6 +49,9 @@ class Com(Thread):
             self.mailbox.append(event)
             print(f"Message reçu par {self.get_name()} : {event.getObject()}")
 
+    def requestSC(self):
+        self.process
+
     
 
     
