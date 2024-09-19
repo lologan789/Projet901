@@ -99,7 +99,7 @@ class Process(Thread):
         self.printer(8, [self.myId, "libère le jeton à", mod(self.myId + 1, Process.nbProcessCreated)])
         if self.token_state == TokenState.SC:
             self.token_state = TokenState.Release
-        token = Token()
+        token = Token(self.horloge)
         token.from_process = self.myId
         token.to_process = mod(self.myId + 1, Process.nbProcessCreated)
         token.nbSync = self.nbSync

@@ -2,9 +2,9 @@ from enum import Enum
 
 
 class Message:
-    def __init__(self, obj: any):
+    def __init__(self, obj: any, horloge: int):
         self.object = obj
-        self.horloge = None
+        self.horloge = horloge
 
     def getObject(self: any):
         return self.object
@@ -17,15 +17,15 @@ class BroadcastMessage(Message):
 
 
 class MessageTo(Message):
-    def __init__(self, obj: any, from_process: str, to_process: str):
-        Message.__init__(self, obj)
+    def __init__(self, obj: any, from_process: str, to_process: str, horloge: int):
+        Message.__init__(self, obj, horloge)
         self.from_process = from_process
         self.to_process = to_process
 
 
 class Token(Message):
-    def __init__(self):
-        Message.__init__(self, "CECI EST UN TOKEN")
+    def __init__(self, horloge):
+        Message.__init__(self, "CECI EST UN TOKEN", horloge)
         self.from_process = None
         self.to_process = None
         self.nbSync = 0
