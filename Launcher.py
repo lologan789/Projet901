@@ -7,7 +7,8 @@ def launch(nbProcessToCreate: int, verbosityLevel: int, runningTime: int):
     processes = []
 
     for i in range(nbProcessToCreate):
-        processes.append(Process("P" + str(i), nbProcessToCreate, verbosityLevel))
+        argv = ["broadcast", "P" + str(i), "message_content"]  # Un exemple simple d'argv
+        processes.append(Process("P" + str(i), nbProcessToCreate, verbosityLevel, argv))  # Passer argv ici
 
     sleep(runningTime)
 

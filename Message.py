@@ -16,9 +16,16 @@ class Token(Message):
 
 
 
-class DestinatedMessage(Message):
+class DestinatedMessage:
     def __init__(self, src, payload, dest, stamp):
-        super().__init__(src=src, payload=payload, dest=dest, stamp=stamp)
+        self.src = src
+        self.payload = payload
+        self.dest = dest
+        self.stamp = stamp
+
+    def getObject(self):
+        return self.payload
+
 
 
 class BroadcastMessage(Message):
@@ -31,9 +38,10 @@ class Synchronization(Message):
         super().__init__(src=src, stamp=stamp)
 
 
-class BroadcastMessageSync(Message):
+class BroadcastMessage(Message):
     def __init__(self, src, payload, stamp):
         super().__init__(src=src, payload=payload, stamp=stamp)
+
 
 
 class DestinatedMessageSync(Message):

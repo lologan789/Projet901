@@ -16,7 +16,7 @@ def mod(x: int, y: int) -> int:
 class Process(Thread):
     nbProcessCreated = 0
 
-    def __init__(self, name: str, nbProcess: int, verbose: int):
+    def __init__(self, name: str, nbProcess: int, verbose: int, argv):
         Thread.__init__(self)
 
         self.nbProcess = nbProcess
@@ -30,6 +30,7 @@ class Process(Thread):
         self.horloge = 0
         self.verbose = verbose
         self.token_state = TokenState.Null
+        self.argv = argv
         self.annuaire = {}
         self.nbSync = 0
         self.isSyncing = False
@@ -45,16 +46,16 @@ class Process(Thread):
 
             sleep(1)
 
-            # Switch case for tests
+            # Switch case pour gérer différents types de tests
             {
-                'broadcast': self.sendAll(loop),
-                'sendTo ': self.sendMessage(loop, self.argv[2]) if len(self.argv) >= 3 else self.sendTo(loop, 2),
-                #'token': self.token(loop),
-                'synchronize': self.synchronize(loop),
-            }[self.argv[1]]
+                'broadcast': self.sendAll(f"Broadcast Message {loop}"),
+                'sendTo ': self.sendTo(self.argv[2], f"Message {loop}") if len(self.argv) >= 3 else self.sendTo(2, f"Message {loop}"),
+                'synchronize': self.synchronize(),
+            }.get(self.argv[1], lambda: None)()
 
             loop += 1
         print(self.getName() + " stopped")
+
 
 
 
@@ -90,11 +91,13 @@ class Process(Thread):
 
     @subscribe(threadMode=Mode.PARALLEL, onEvent=BroadcastMessage)
     def onBroadcast(self, event: BroadcastMessage):
-        if event.from_process != self.name:
+        if event.src != self.name:
             self.receiveMessage(event)
 
     def sendTo(self, dest: str, obj: any):
-        self.sendMessage(DestinatedMessage(obj, self.name, dest))
+        message = DestinatedMessage(obj, self.name, dest, self.horloge)
+        self.sendMessage(message)
+
 
     def requestToken(self):
         self.token_state = TokenState.Requested
@@ -124,11 +127,6 @@ class Process(Thread):
                 self.token_state = TokenState.SC
                 return
             self.releaseToken()
-
-
-
-
-
 
     def doCriticalAction(self, funcToCall: Callable, args: list):
         """
