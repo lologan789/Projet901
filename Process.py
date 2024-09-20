@@ -31,24 +31,25 @@ class Process(Thread):
         self.token_state = TokenState.Null
         self.nbSync = 0
         self.isSyncing = False
+        self.state = None
         self.mailbox = []
         self.com = Com(self.horloge, self)
         self.start()
 
     def run(self):
-        if self.alive : 
-            print("Fonctionne")
+        if self.alive:
+            print(f"{self.name} Fonctionne")
+        
         while self.nbProcess != Process.nbProcessCreated:
             pass
+        
         if self.myId == 0:
             self.releaseToken()
-            if self.alive : 
-                print("Fonctionne release")
+
         self.synchronize()
-        if self.alive : 
-            print("Fonctionne sync")
+
         loop = 0
-        while self.alive:
+        while self.alive and loop < 10:  # Limite le nombre de boucles pour tester
             self.printer(2, [self.name, "Itération:", loop, "; Horloge locale:", self.horloge])
             sleep(1)
 
@@ -59,14 +60,20 @@ class Process(Thread):
                 self.broadcast("Diffusion de P2: Bonjour à tous!")
             if self.name == "P3":
                 receiver = str(random.randint(0, self.nbProcess - 1))
-                self.sendTo("P" + receiver, "Spam de P3 à P" + receiver + ": Comment ça va ?")
+                self.sendTo("P" + receiver, f"Spam de P3 à P{receiver}: Comment ça va ?")
+            
             loop += 1
-        sleep(1)
+        
         self.printer(2, [self.name, "arrêté"])
+        sleep(1)
+
+
 
     def stop(self):
+        print(f"Process {self.name} stop() called")
         self.alive = False
         self.join()
+
 
     def sendMessage(self, message: Message, verbosityThreshold=1):
         self.horloge += 1
@@ -96,10 +103,14 @@ class Process(Thread):
     def sendTo(self, dest: str, obj: any):
         self.sendMessage(MessageTo(obj, self.name, dest))
 
-    @subscribe(threadMode=Mode.PARALLEL, onEvent=MessageTo)
-    def onReceive(self, event: MessageTo):
-        if event.to_process == self.name:
-            self.receiveMessage(event)
+    def requestToken(self):
+        self.token_state = TokenState.Requested
+        self.printer(4, [self.name, "en attente du jeton"])
+        while self.token_state == TokenState.Requested:
+            if not self.alive:
+                return
+        self.token_state = TokenState.SC
+        self.printer(4, [self.name, "a reçu le jeton demandé"])
 
     def releaseToken(self):
         self.printer(8, [self.myId, "libère le jeton à", mod(self.myId + 1, Process.nbProcessCreated)])
@@ -110,35 +121,22 @@ class Process(Thread):
         token.to_process = mod(self.myId + 1, Process.nbProcessCreated)
         token.nbSync = self.nbSync
         self.sendMessage(token, verbosityThreshold=8)
+        print(f"{self.name} a libéré le jeton pour P{token.to_process}")
         self.token_state = TokenState.Null
 
-    def requestToken(self):
-        self.token_state = TokenState.Requested
-        self.printer(4, [self.name, "en attente du jeton"])
-        while self.token_state == TokenState.Requested:
-            if not self.alive:
-                return
-        self.token_state = TokenState.SC
-        self.printer(4, [self.name, "a reçu le jeton demandé"])
-
-    @subscribe(threadMode=Mode.PARALLEL, onEvent=Token)
     def onToken(self, event: Token):
-        """
-        Le jeton circule continuellement. Il s'arrête si un processus en a besoin pour accéder à une section critique.
-        """
         if event.to_process == self.myId:
             self.receiveMessage(event, verbosityThreshold=8)
-            if not self.alive:
-                return
+            print(f"{self.name} a reçu le jeton.")
             if self.token_state == TokenState.Requested:
                 self.token_state = TokenState.SC
                 return
-            if self.isSyncing:
-                self.isSyncing = False
-                self.nbSync = mod(event.nbSync + 1, Process.nbProcessCreated)
-                if self.nbSync == 0:
-                    self.sendMessage(SyncingMessage(self.myId))
             self.releaseToken()
+
+
+
+
+
 
     def doCriticalAction(self, funcToCall: Callable, args: list):
         """
@@ -157,14 +155,18 @@ class Process(Thread):
 
     def synchronize(self):
         self.isSyncing = True
-        self.printer(2, [self.myId, "est en cours de synchronisation"])
-        while self.isSyncing:
-            if not self.alive:
-                return
+        self.printer(2, [self.myId, "demarre synchronisation"])
+        self.requestToken()
+        if not self.alive:
+            return
+        self.isSyncing = False
+        self.nbSync = mod(self.nbSync + 1, Process.nbProcessCreated)
+        self.releaseToken()
         while self.nbSync != 0:
             if not self.alive:
                 return
-        self.printer(2, [self.myId, "synchronisé"])
+        self.printer(2, [self.myId, "synchronisation terminée"])
+
 
     @subscribe(threadMode=Mode.PARALLEL, onEvent=SyncingMessage)
     def onSyncing(self, event: SyncingMessage):

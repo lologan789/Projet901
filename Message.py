@@ -1,50 +1,69 @@
-from enum import Enum
+from abc import ABC
 
 
-class Message:
-    def __init__(self, obj: any, horloge: int):
-        self.object = obj
-        self.horloge = horloge
-
-    def getObject(self: any):
-        return self.object
-
-
-class BroadcastMessage(Message):
-    def __init__(self, obj: any, from_process: str):
-        Message.__init__(self, obj)
-        self.from_process = from_process
-
-
-class MessageTo(Message):
-    def __init__(self, obj: any, from_process: str, to_process: str, horloge: int):
-        Message.__init__(self, obj, horloge)
-        self.from_process = from_process
-        self.to_process = to_process
+class Message(ABC):
+    def __init__(self, src=None, payload=None, dest=None, stamp=None):
+        self.src = src
+        self.payload = payload
+        self.dest = dest
+        self.stamp = stamp
 
 
 class Token(Message):
-    def __init__(self, horloge):
-        Message.__init__(self, "CECI EST UN TOKEN", horloge)
-        self.from_process = None
-        self.to_process = None
-        self.nbSync = 0
+    def __init__(self, dest):
+        super().__init__(dest=dest)
 
 
-class TokenState(Enum):
-    """
-    Null: pas de token et pas de demande de token
-    Requested: demande de token en cours
-    SC: processus en section critique
-    Release: relâche du token en cours
-    """
-    Null = 1
-    Requested = 2
-    SC = 3
-    Release = 4
+class DestinatedMessage(Message):
+    def __init__(self, src, payload, dest, stamp):
+        super().__init__(src=src, payload=payload, dest=dest, stamp=stamp)
 
 
-class SyncingMessage(Message):
-    def __init__(self, from_process: int):
-        Message.__init__(self, "SYNCING")
-        self.from_process = from_process
+class BroadcastMessage(Message):
+    def __init__(self, src, payload, stamp):
+        super().__init__(src=src, payload=payload, stamp=stamp)
+
+
+class Synchronization(Message):
+    def __init__(self, src, stamp):
+        super().__init__(src=src, stamp=stamp)
+
+
+class BroadcastMessageSync(Message):
+    def __init__(self, src, payload, stamp):
+        super().__init__(src=src, payload=payload, stamp=stamp)
+
+
+class DestinatedMessageSync(Message):
+    def __init__(self, src, payload, dest, stamp):
+        super().__init__(src=src, payload=payload, dest=dest, stamp=stamp)
+
+
+class MessageReceivedSync(Message):
+    def __init__(self, src, dest, stamp):
+        super().__init__(src=src, dest=dest, stamp=stamp)
+
+
+class UpdateAnnuaire(Message):
+    def __init__(self, annuaire):
+        self.annuaire = annuaire
+
+
+class AddAnnuaire(Message):
+    def __init__(self, pid):
+        self.pid = pid
+
+
+class Numerotation(Message):
+    def __init__(self, pid):
+        self.pid = pid
+
+
+class NumerotationBack(Message):
+    def __init__(self, pid):
+        self.pid = pid
+
+
+class Leader(Message):
+    def __init__(self, pid):
+        self.pid = pid
