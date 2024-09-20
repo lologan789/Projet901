@@ -2,10 +2,11 @@ import random
 from time import sleep
 from typing import Callable
 from Com import Com
+from State import *
 
 from pyeventbus3.pyeventbus3 import *
 
-from Message import Message, BroadcastMessage, MessageTo, Token, TokenState, SyncingMessage
+from Message import *
 
 
 def mod(x: int, y: int) -> int:
@@ -29,49 +30,37 @@ class Process(Thread):
         self.horloge = 0
         self.verbose = verbose
         self.token_state = TokenState.Null
+        self.annuaire = {}
         self.nbSync = 0
         self.isSyncing = False
         self.state = None
         self.mailbox = []
-        self.com = Com(self.horloge, self)
+        self.com = Com(0, self)
         self.start()
 
     def run(self):
-        if self.alive:
-            print(f"{self.name} Fonctionne")
-        
-        while self.nbProcess != Process.nbProcessCreated:
-            pass
-        
-        if self.myId == 0:
-            self.releaseToken()
-
-        self.synchronize()
-
         loop = 0
-        while self.alive and loop < 10:  # Limite le nombre de boucles pour tester
-            self.printer(2, [self.name, "Itération:", loop, "; Horloge locale:", self.horloge])
+        while self.alive:
+            print(self.getName() + " Loop: " + str(loop))
+
             sleep(1)
 
-            if self.name == "P1":
-                self.sendTo("P2", "Message de P1: Salut P2!")
-                self.doCriticalAction(self.criticalActionWarning, ["Critical warning"])
-            if self.name == "P2":
-                self.broadcast("Diffusion de P2: Bonjour à tous!")
-            if self.name == "P3":
-                receiver = str(random.randint(0, self.nbProcess - 1))
-                self.sendTo("P" + receiver, f"Spam de P3 à P{receiver}: Comment ça va ?")
-            
+            # Switch case for tests
+            {
+                'broadcast': self.sendAll(loop),
+                'sendTo ': self.sendMessage(loop, self.argv[2]) if len(self.argv) >= 3 else self.sendTo(loop, 2),
+                #'token': self.token(loop),
+                'synchronize': self.synchronize(loop),
+            }[self.argv[1]]
+
             loop += 1
-        
-        self.printer(2, [self.name, "arrêté"])
-        sleep(1)
+        print(self.getName() + " stopped")
 
 
 
     def stop(self):
-        print(f"Process {self.name} stop() called")
         self.alive = False
+        self.com.stop()
         self.join()
 
 
@@ -79,14 +68,18 @@ class Process(Thread):
         self.horloge += 1
         message.horloge = self.horloge
         self.printer(verbosityThreshold, [self.name, "envoie:", message.getObject()])
-        self.com.sendTo(message.to_process, message)
+        self.com.sendTo(message, message.dest)
+
 
     def receiveMessage(self, message: Message, verbosityThreshold=1):
-        self.printer(verbosityThreshold, [self.name, "Traite l'événement:", message.getObject()])
-        self.horloge = max(self.horloge, message.horloge) + 1
+        if self.com.mailbox:
+            message = self.com.mailbox.pop(0)
+            self.printer(verbosityThreshold, [self.name, "Traite l'événement:", message.getObject()])
+            self.horloge = max(self.horloge, message.horloge) + 1
+
 
     def sendAll(self, obj: any):
-        self.com.broadcast(BroadcastMessage(obj, self.name))
+        self.com.broadcast(obj)
 
     @subscribe(threadMode=Mode.PARALLEL, onEvent=Message)
     def process(self, event: Message):
@@ -101,7 +94,7 @@ class Process(Thread):
             self.receiveMessage(event)
 
     def sendTo(self, dest: str, obj: any):
-        self.sendMessage(MessageTo(obj, self.name, dest))
+        self.sendMessage(DestinatedMessage(obj, self.name, dest))
 
     def requestToken(self):
         self.token_state = TokenState.Requested
@@ -116,13 +109,12 @@ class Process(Thread):
         self.printer(8, [self.myId, "libère le jeton à", mod(self.myId + 1, Process.nbProcessCreated)])
         if self.token_state == TokenState.SC:
             self.token_state = TokenState.Release
-        token = Token(self.horloge)
-        token.from_process = self.myId
-        token.to_process = mod(self.myId + 1, Process.nbProcessCreated)
-        token.nbSync = self.nbSync
-        self.sendMessage(token, verbosityThreshold=8)
-        print(f"{self.name} a libéré le jeton pour P{token.to_process}")
+        token = Token(src=self.myId, dest=mod(self.myId + 1, Process.nbProcessCreated), nbSync=self.nbSync, stamp=self.horloge)
+        self.com.sendTo(token, f"P{token.dest}")  # Utilisation de la classe Com
+        print(f"{self.name} a libéré le jeton pour P{token.dest}")
         self.token_state = TokenState.Null
+
+
 
     def onToken(self, event: Token):
         if event.to_process == self.myId:
@@ -168,8 +160,8 @@ class Process(Thread):
         self.printer(2, [self.myId, "synchronisation terminée"])
 
 
-    @subscribe(threadMode=Mode.PARALLEL, onEvent=SyncingMessage)
-    def onSyncing(self, event: SyncingMessage):
+    @subscribe(threadMode=Mode.PARALLEL, onEvent=Synchronization)
+    def onSyncing(self, event: Synchronization):
         if event.from_process != self.myId:
             self.receiveMessage(event)
             self.nbSync = 0

@@ -36,9 +36,8 @@ class Com(Thread):
 
     def broadcast(self, payload : object):
         self.__inc_clock()
-        for p in self.process.processes:
-            if p != self.process:
-                PyBus.Instance().post(BroadcastMessage(src=self.get_name(), payload=payload, stamp=self.clock))
+        PyBus.Instance().post(BroadcastMessage(src=self.get_name(), payload=payload, stamp=self.clock))
+
 
     
     def sendTo(self, payload, dest: str):
@@ -47,10 +46,11 @@ class Com(Thread):
 
     @subscribe(threadMode=Mode.PARALLEL, onEvent=DestinatedMessage)
     def onReceive(self, event: DestinatedMessage):
-        if event.dest == self.getName():
+        if event.dest == self.get_name():
             self.clock = max(self.clock, event.stamp) + 1
             self.mailbox.append(event)
             print(f"Message reçu par {self.get_name()} : {event.payload}")
+
 
     def requestSC(self):
         self.process.state = State.REQUEST
@@ -77,8 +77,16 @@ class Com(Thread):
             while not self.messageReceived:
                 sleep(1)
             self.messageReceived = False
-
     
+    def sendToSync(self, dest: int, payload: object):
+        self.__inc_clock()
+        PyBus.Instance().post(DestinatedMessageSync(src=self.owner, payload=payload, dest=dest, stamp=self.clock))
+        print('sendToSync')
+        while not self.messageReceived:
+            sleep(1)
+        self.messageReceived = False
+
+
 
     
 

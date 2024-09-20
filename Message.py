@@ -10,8 +10,10 @@ class Message(ABC):
 
 
 class Token(Message):
-    def __init__(self, dest):
-        super().__init__(dest=dest)
+    def __init__(self, src, dest, nbSync, stamp):
+        super().__init__(src=src, dest=dest, stamp=stamp)
+        self.nbSync = nbSync
+
 
 
 class DestinatedMessage(Message):
